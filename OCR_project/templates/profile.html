@@ -1,0 +1,280 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Профиль пользователя</title>
+
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+
+    <style>
+        body {
+            font-family: 'Segoe UI', sans-serif;
+            background-color: #f4f6f9;
+            margin: 0;
+            padding: 40px 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.05);
+            width: 100%;
+            max-width: 950px;
+            margin-bottom: 20px;
+        }
+        .nav-links {
+            width: 100%;
+            max-width: 950px;
+            margin-bottom: 15px;
+            display: flex;
+            justify-content: space-between;
+        }
+        .nav-links a {
+            color: #007bff;
+            text-decoration: none;
+            font-weight: bold;
+        }
+        .nav-links a:hover { text-decoration: underline; }
+
+        h2, h3 { color: #333; margin-top: 0; }
+        .user-info {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 8px;
+            border-left: 5px solid #007bff;
+            margin-bottom: 25px;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 15px;
+        }
+        th, td {
+            padding: 12px 15px;
+            text-align: left;
+            border-bottom: 1px solid #e3e6ea;
+            vertical-align: middle;
+        }
+        th {
+            background-color: #f1f3f5;
+            color: #495057;
+            font-weight: 600;
+        }
+        tr:hover { background-color: #f8f9fa; }
+
+        .code-snippet {
+            font-family: monospace;
+            background: #e9ecef;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 13px;
+            max-width: 150px;
+            display: inline-block;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+        .math-cell {
+            font-size: 18px;
+        }
+
+        /* Контейнер для кнопок действий, чтобы они не слипались */
+        .actions-cell {
+            display: flex;
+            gap: 6px;
+            white-space: nowrap;
+        }
+
+        /* Маленькая кнопка PDF в таблице */
+        .btn-pdf-table {
+            background-color: #dc3545;
+            color: white;
+            border: none;
+            padding: 6px 12px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+        .btn-pdf-table:hover { background-color: #c82333; }
+
+        /* НОВАЯ СТИЛИСТИКА: Маленькая кнопка TEX в таблице */
+        .btn-tex-table {
+            background-color: #28a745;
+            color: white;
+            border: none;
+            padding: 6px 12px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+        .btn-tex-table:hover { background-color: #218838; }
+
+        .no-data {
+            text-align: center;
+            color: #6c757d;
+            padding: 30px;
+        }
+    </style>
+</head>
+<body>
+
+<div class="nav-links">
+    <a href="/dashboard">← Вернуться к сканеру формул</a>
+    <a href="/logout" style="color: #dc3545;">Выйти из аккаунта</a>
+</div>
+
+<div class="container">
+    <h2>Личный кабинет</h2>
+    <div class="user-info">
+        <p><strong>Имя пользователя (Логин):</strong> {{ user.username }}</p>
+        <p><strong>ID аккаунта:</strong> {{ user.id }}</p>
+    </div>
+
+    <h3>История последних конвертаций</h3>
+
+    {% if history %}
+        <table>
+            <thead>
+                <tr>
+                    <th>Дата</th>
+                    <th>Имя файла</th>
+                    <th>Код LaTeX</th>
+                    <th>Визуальный результат</th>
+                    <th>Действия</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for item in history %}
+                    <tr>
+                        <td>{{ item.created_at.strftime('%d.%m.%Y %H:%M') }}</td>
+                        <td>{{ item.filename }}</td>
+                        <td><span class="code-snippet" title="{{ item.formula_latex }}">{{ item.formula_latex }}</span></td>
+                        <td class="math-cell" data-latex="{{ item.formula_latex }}"></td>
+                        <td>
+                            <div class="actions-cell">
+                                <button onclick="downloadRowAsTex(this)" class="btn-tex-table">💾 TEX</button>
+                                <button onclick="downloadRowAsPdf(this)" class="btn-pdf-table">📕 PDF</button>
+                            </div>
+                        </td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    {% else %}
+        <div class="no-data">
+            <p>Вы еще не сканировали формулы. Все ваши успешные распознавания появятся здесь!</p>
+        </div>
+    {% endif %}
+</div>
+
+<script>
+    document.addEventListener("DOMContentLoaded", function() {
+        const mathCells = document.querySelectorAll('.math-cell');
+        mathCells.forEach(cell => {
+            const formula = cell.getAttribute('data-latex');
+            if (formula) {
+                try {
+                    katex.render(formula, cell, {
+                        throwOnError: false,
+                        displayMode: false
+                    });
+                } catch (error) {
+                    console.error("Ошибка отрисовки KaTeX:", error);
+                    cell.innerText = formula;
+                }
+            }
+        });
+    });
+
+    // Скачивание .tex файла прямо из строки истории
+    function downloadRowAsTex(buttonElement) {
+        const row = buttonElement.closest('tr');
+        const mathCell = row.querySelector('.math-cell');
+        const latexText = mathCell.getAttribute('data-latex');
+
+        if (!latexText) return;
+
+        let filename = 'formula.tex';
+        const filenameCell = row.cells[1];
+
+        if (filenameCell && filenameCell.innerText) {
+            const originalName = filenameCell.innerText.trim();
+            const lastDotIndex = originalName.lastIndexOf('.');
+
+            if (lastDotIndex !== -1) {
+                filename = originalName.substring(0, lastDotIndex) + '.tex';
+            } else {
+                filename = originalName + '.tex';
+            }
+        }
+
+        const blob = new Blob([latexText], { type: 'text/plain;charset=utf-8' });
+        const link = document.createElement('a');
+        link.href = URL.createObjectURL(blob);
+        link.download = filename;
+        link.click();
+        URL.revokeObjectURL(link.href);
+    }
+
+    // Функция скачивания PDF для конкретной строки
+    function downloadRowAsPdf(buttonElement) {
+        const row = buttonElement.closest('tr');
+        const mathCell = row.querySelector('.math-cell');
+        const formulaHtml = mathCell.innerHTML;
+
+        if (!formulaHtml) return;
+
+        const printWindow = window.open('', '_blank', 'width=800,height=600');
+        printWindow.document.write(`
+            <!DOCTYPE html>
+            <html>
+            <head>
+                <title>Экспорт формулы из истории</title>
+                <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+                <style>
+                    body {
+                        font-family: 'Segoe UI', sans-serif;
+                        display: flex;
+                        justify-content: center;
+                        align-items: center;
+                        height: 100vh;
+                        margin: 0;
+                        background: white;
+                    }
+                    .pdf-container {
+                        font-size: 28px;
+                        text-align: center;
+                        padding: 40px;
+                    }
+                    @page { size: auto; margin: 0mm; }
+                </style>
+            </head>
+            <body>
+                <div class="pdf-container">${formulaHtml}</div>
+                <script>
+                    window.onload = function() {
+                        setTimeout(function() {
+                            window.print();
+                            window.close();
+                        }, 250);
+                    };
+                <\/script>
+            </body>
+            </html>
+        `);
+        printWindow.document.close();
+    }
+</script>
+
+</body>
+</html>
